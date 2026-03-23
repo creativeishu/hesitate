@@ -28,10 +28,10 @@ st.caption("Watch a language model choose the next token, one step at a time.")
 # ---------------------------------------------------------------------------
 
 MODELS = {
-    "DistilGPT-2 (82M, fastest)": "distilgpt2",
-    "GPT-2 (small, 117M)":        "gpt2",
-    "GPT-2 Medium (345M)":        "gpt2-medium",
-    "GPT-2 Large (774M)":         "gpt2-large",
+    "GPT-2 Medium (345M) ★ recommended": "gpt2-medium",
+    "GPT-2 Large (774M)":                "gpt2-large",
+    "GPT-2 (small, 117M)":               "gpt2",
+    "DistilGPT-2 (82M, fastest)":        "distilgpt2",
 }
 
 # ---------------------------------------------------------------------------
@@ -176,6 +176,11 @@ with st.sidebar:
             st.session_state.history = []
             st.rerun()
 
+    st.caption(
+        "Smaller models (distilgpt2, gpt2) lack factual knowledge — "
+        "they won't reliably predict 'Paris' for 'capital of France'. "
+        "GPT-2 Medium is the minimum size for sensible factual completions."
+    )
     st.divider()
     st.header("Settings")
     top_k = st.slider("Top-k tokens to display", min_value=5, max_value=40, value=20)
