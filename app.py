@@ -5,7 +5,6 @@ Run with:
     streamlit run app.py
 """
 
-import time
 import threading
 
 import streamlit as st
@@ -246,8 +245,7 @@ with st.sidebar:
             st.error(f"Failed: {_load_state.get('error', 'unknown error')}")
             st.rerun()
         else:
-            # Poll every 0.5s — triggers a re-render to update the progress bar
-            time.sleep(0.5)
+            # Immediately rerun — Streamlit's render cycle is the poll interval
             st.rerun()
 
     # --- Ready state ---
