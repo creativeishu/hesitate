@@ -48,10 +48,17 @@ scratch. This is wasteful and can cause flickering.
 Streamlit has no native push/async mechanism. There is no way for a background
 thread to update the UI without triggering a full page rerun.
 
+### Additional note — GIL starvation
+A tight `st.rerun()` loop with no sleep completely starves the background loading
+thread. Python's Global Interpreter Lock (GIL) is never released by the spinning
+main thread, so the background thread never runs. A `time.sleep(0.1)` call is
+required to yield the GIL. This is a fundamental Python threading limitation.
+
 ### What a better stack would give us
 - **FastAPI + React**: the backend emits Server-Sent Events (SSE) or WebSocket
   messages with progress updates. The frontend updates only the progress bar
-  component — no full page re-render.
+  component — no full page re-render. No GIL issue since loading runs in a
+  separate process, not a thread.
 
 ---
 

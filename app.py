@@ -5,6 +5,7 @@ Run with:
     streamlit run app.py
 """
 
+import time
 import threading
 
 import streamlit as st
@@ -245,7 +246,9 @@ with st.sidebar:
             st.error(f"Failed: {_load_state.get('error', 'unknown error')}")
             st.rerun()
         else:
-            # Immediately rerun — Streamlit's render cycle is the poll interval
+            # Sleep briefly to yield the GIL so the background thread can run.
+            # Without this, the tight rerun loop starves the loading thread.
+            time.sleep(0.1)
             st.rerun()
 
     # --- Ready state ---
