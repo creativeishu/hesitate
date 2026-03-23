@@ -70,17 +70,20 @@ def get_next_token_distribution(
 
     # Apply temperature before softmax
     if temperature <= 0.01:
-        # Greedy — pure argmax, no sampling
+        # Fully greedy — argmax, no randomness
         probs_all = torch.zeros_like(logits)
         probs_all[logits.argmax()] = 1.0
+        selected_id = int(logits.argmax())
     else:
         probs_all = torch.softmax(logits / temperature, dim=-1)
+        # Sample from the distribution — this is what makes temperature meaningful.
+        # argmax would always pick the top token regardless of T.
+        selected_id = int(torch.multinomial(probs_all, num_samples=1))
 
     top = torch.topk(probs_all, k=top_k)
     top_tokens = [tokenizer.decode([tid]) for tid in top.indices.tolist()]
     top_probs = top.values.tolist()
 
-    selected_id = int(torch.argmax(probs_all))
     selected_token = tokenizer.decode([selected_id])
     selected_prob = float(probs_all[selected_id])
 
