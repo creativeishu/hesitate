@@ -28,22 +28,37 @@ st.caption("Watch a language model choose the next token, one step at a time.")
 # ---------------------------------------------------------------------------
 
 MODELS = {
-    "GPT-2 Medium (345M) ★ recommended": "gpt2-medium",
+    "GPT-2 Medium (345M)":               "gpt2-medium",
     "GPT-2 Large (774M)":                "gpt2-large",
     "GPT-2 (small, 117M)":               "gpt2",
-    "DistilGPT-2 (82M, fastest)":        "distilgpt2",
+    "DistilGPT-2 (82M)":                 "distilgpt2",
+    "Phi-2 (2.7B) — recommended":        "microsoft/phi-2",
+    "Phi-3-mini (3.8B)":                 "microsoft/Phi-3-mini-4k-instruct",
+    "Llama-3.2-3B (needs HF token)":     "meta-llama/Llama-3.2-3B",
+    "Custom (type below)":               "__custom__",
 }
 
 # ---------------------------------------------------------------------------
 # Model loading
 # ---------------------------------------------------------------------------
 
+DEVICE = (
+    "mps"  if torch.backends.mps.is_available() else
+    "cuda" if torch.cuda.is_available()         else
+    "cpu"
+)
+DTYPE = torch.float16 if DEVICE in ("mps", "cuda") else torch.float32
+
+
 def load_model(model_id: str):
     with st.status("Loading model…", expanded=True) as status:
+        st.write(f"Device: **{DEVICE}** | dtype: **{DTYPE}**")
         st.write("Loading tokenizer…")
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         st.write("Loading model weights…")
-        model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.float32)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id, dtype=DTYPE, device_map=DEVICE
+        )
         st.write("Finalising…")
         model.eval()
         status.update(label="Model ready!", state="complete", expanded=False)
@@ -79,6 +94,7 @@ def get_next_token_distribution(
     tokenizer, model, text: str, temperature: float = 1.0, top_p: float = 1.0
 ):
     inputs = tokenizer(text, return_tensors="pt")
+    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
     with torch.no_grad():
         outputs = model(**inputs)
 
@@ -190,13 +206,25 @@ with st.sidebar:
     chosen_label = st.selectbox(
         "Choose a model",
         list(MODELS.keys()),
-        index=0,
+        index=4,  # Phi-2 default
         disabled=st.session_state.model_ready,
     )
     model_id = MODELS[chosen_label]
 
+    if model_id == "__custom__":
+        model_id = st.text_input(
+            "HuggingFace model ID",
+            placeholder="e.g. microsoft/phi-2",
+            disabled=st.session_state.model_ready,
+        ).strip()
+
     if not st.session_state.model_ready:
-        if st.button("Load model", use_container_width=True, type="primary"):
+        if st.button(
+            "Load model",
+            use_container_width=True,
+            type="primary",
+            disabled=not model_id or model_id == "__custom__",
+        ):
             tokenizer, model = load_model(model_id)
             st.session_state.tokenizer  = tokenizer
             st.session_state.model      = model
