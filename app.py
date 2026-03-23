@@ -208,7 +208,9 @@ def get_next_token_distribution(tokenizer, model, text, temperature=1.0, top_p=1
     selected_token = tokenizer.decode([selected_id])
     selected_prob  = float(probs[selected_id])
     n_nucleus      = int((probs > 0).sum())
-    entropy        = float(-torch.sum(probs * torch.log2(probs + 1e-12)))
+    # Compute entropy in float32 — float16 zeros cause 0*log(0) = NaN
+    p32 = probs.float()
+    entropy = float(-torch.sum(p32 * torch.log2(p32.clamp(min=1e-10))))
 
     return top_tokens, top_probs, selected_token, selected_prob, entropy, n_nucleus
 
@@ -229,6 +231,7 @@ def make_chart(tokens, probs, selected_token) -> go.Figure:
     fig = go.Figure(go.Bar(
         x=[repr(t) for t in tokens],
         y=probs,
+        width=0.55,   # explicit uniform width — prevents bars stretching with label length
         marker=dict(color=colours, line=dict(color=border, width=1.5)),
         text=[f"{p*100:.1f}%" for p in probs],
         textposition="outside",
@@ -307,7 +310,7 @@ with st.sidebar:
 
     st.markdown("**Model**")
     chosen = st.selectbox(
-        "model", list(MODELS.keys()), index=0,
+        "model", list(MODELS.keys()), index=2,  # GPT-Neo 1.3B default
         disabled=st.session_state.model_ready,
         label_visibility="collapsed",
     )
