@@ -48,11 +48,16 @@ scratch. This is wasteful and can cause flickering.
 Streamlit has no native push/async mechanism. There is no way for a background
 thread to update the UI without triggering a full page rerun.
 
-### Additional note — GIL starvation
+### Additional note — GIL starvation (measured)
 A tight `st.rerun()` loop with no sleep completely starves the background loading
-thread. Python's Global Interpreter Lock (GIL) is never released by the spinning
-main thread, so the background thread never runs. A `time.sleep(0.1)` call is
-required to yield the GIL. This is a fundamental Python threading limitation.
+thread. Measured: distilgpt2 (normally ~1s to load) took **69 seconds** under
+GIL starvation — 67x slower — with the main thread polling 10 billion times.
+With `time.sleep(0.1)` to yield the GIL it loaded in ~4.5s. This is a
+fundamental Python threading limitation.
+
+**Resolution**: dropped threading entirely. Model now loads synchronously inside
+`st.status()`, which is Streamlit's built-in mechanism for blocking operations
+with live feedback. No GIL issues, no rerun loops, stable UI.
 
 ### What a better stack would give us
 - **FastAPI + React**: the backend emits Server-Sent Events (SSE) or WebSocket
