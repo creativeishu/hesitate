@@ -22,7 +22,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Custom CSS
+# CSS — light theme
 # ---------------------------------------------------------------------------
 
 st.markdown("""
@@ -33,89 +33,119 @@ html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
 
-/* Hide Streamlit chrome */
 #MainMenu, footer, header { visibility: hidden; }
 
-/* App background */
-.stApp { background-color: #0d1117; }
+/* Light background */
+.stApp { background-color: #f1f5f9; }
 
 /* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: #111827;
-    border-right: 1px solid #1f2937;
+    background-color: #ffffff;
+    border-right: 1px solid #e2e8f0;
 }
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3 {
-    color: #f9fafb;
-}
+[data-testid="stSidebar"] * { color: #1e293b !important; }
 
-/* Slider accent */
-[data-testid="stSlider"] > div > div > div > div {
-    background: #6366f1;
-}
+/* All text dark */
+p, li, span, label, div { color: #1e293b; }
+h1, h2, h3, h4 { color: #0f172a !important; font-weight: 700 !important; }
 
 /* Buttons */
 .stButton > button {
     border-radius: 8px;
     font-weight: 600;
-    font-size: 0.85rem;
-    border: none;
-    transition: all 0.2s ease;
+    font-size: 0.88rem;
+    transition: all 0.15s ease;
+    border: 1.5px solid #e2e8f0;
+    color: #1e293b;
+    background: #ffffff;
 }
-.stButton > button:hover { opacity: 0.85; transform: translateY(-1px); }
-
-/* Primary button */
+.stButton > button:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(99,102,241,0.15);
+}
 .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: white;
+    background: #6366f1;
+    color: white !important;
+    border: none;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+}
+.stButton > button[kind="primary"]:hover {
+    background: #4f46e5;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.4);
 }
 
-/* Section headers */
-h2 { color: #f9fafb !important; font-weight: 600 !important; }
-h3 { color: #e5e7eb !important; font-weight: 500 !important; }
+/* Inputs */
+.stTextArea textarea, .stTextInput input {
+    background: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    color: #1e293b !important;
+    font-size: 1rem !important;
+}
+.stTextArea textarea:focus, .stTextInput input:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+}
 
-/* Metric cards */
+/* Selectbox */
+[data-testid="stSelectbox"] > div > div {
+    background: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    color: #1e293b !important;
+}
+
+/* Slider */
+[data-testid="stSlider"] label { color: #64748b !important; font-size: 0.8rem !important; }
+[data-testid="stSlider"] > div > div > div > div { background: #6366f1 !important; }
+
+/* Metrics */
 [data-testid="stMetric"] {
-    background: #1f2937;
-    border: 1px solid #374151;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 1rem 1.2rem;
+    padding: 1rem 1.2rem !important;
 }
-[data-testid="stMetricLabel"] { color: #9ca3af !important; font-size: 0.75rem !important; }
-[data-testid="stMetricValue"] { color: #f9fafb !important; font-size: 1.4rem !important; font-weight: 700 !important; }
+[data-testid="stMetricLabel"] p { color: #64748b !important; font-size: 0.72rem !important; font-weight: 500 !important; text-transform: uppercase; letter-spacing: 0.05em; }
+[data-testid="stMetricValue"] { color: #0f172a !important; font-size: 1.5rem !important; font-weight: 700 !important; }
 [data-testid="stMetricDelta"] { color: #10b981 !important; }
 
-/* Info/success boxes */
-[data-testid="stAlert"] { border-radius: 10px; }
+/* Status box */
+[data-testid="stStatus"] { border-radius: 10px; background: #f8fafc; }
+
+/* Caption */
+.stCaption p { color: #94a3b8 !important; font-size: 0.78rem !important; }
+
+/* Success */
+[data-testid="stAlert"][data-baseweb="notification"] { border-radius: 8px; }
 
 /* Divider */
-hr { border-color: #1f2937 !important; }
-
-/* Caption text */
-.stCaption { color: #6b7280 !important; }
+hr { border-color: #e2e8f0 !important; margin: 0.75rem 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Available models
+# Models
 # ---------------------------------------------------------------------------
 
 MODELS = {
-    "GPT-2 Medium (345M)":               "gpt2-medium",
-    "GPT-2 Large (774M)":                "gpt2-large",
-    "GPT-Neo 1.3B":                      "EleutherAI/gpt-neo-1.3B",
-    "GPT-Neo 2.7B":                      "EleutherAI/gpt-neo-2.7B",
-    "GPT-2 (small, 117M)":               "gpt2",
-    "DistilGPT-2 (82M)":                 "distilgpt2",
-    "Phi-2 (2.7B) — instruct":           "microsoft/phi-2",
-    "Phi-3-mini (3.8B) — instruct":      "microsoft/Phi-3-mini-4k-instruct",
-    "Llama-3.2-3B (needs HF token)":     "meta-llama/Llama-3.2-3B",
-    "Custom (type below)":               "__custom__",
+    "GPT-2 Medium (345M)":           "gpt2-medium",
+    "GPT-2 Large (774M)":            "gpt2-large",
+    "GPT-Neo 1.3B":                  "EleutherAI/gpt-neo-1.3B",
+    "GPT-Neo 2.7B":                  "EleutherAI/gpt-neo-2.7B",
+    "GPT-2 Small (117M)":            "gpt2",
+    "DistilGPT-2 (82M)":             "distilgpt2",
+    "Phi-2 (2.7B)":                  "microsoft/phi-2",
+    "Phi-3-mini (3.8B)":             "microsoft/Phi-3-mini-4k-instruct",
+    "Llama-3.2-3B (HF token)":       "meta-llama/Llama-3.2-3B",
+    "Custom":                        "__custom__",
 }
 
 # ---------------------------------------------------------------------------
-# Device & dtype
+# Device
 # ---------------------------------------------------------------------------
 
 DEVICE = (
@@ -131,18 +161,15 @@ DTYPE = torch.float16 if DEVICE in ("mps", "cuda") else torch.float32
 
 def load_model(model_id: str):
     with st.status("Loading model…", expanded=True) as status:
-        st.write(f"Device: **{DEVICE.upper()}** | Precision: **{str(DTYPE).split('.')[-1]}**")
+        st.write(f"Device: **{DEVICE.upper()}** · Precision: **{str(DTYPE).split('.')[-1]}**")
         st.write("Loading tokenizer…")
         tokenizer = AutoTokenizer.from_pretrained(model_id)
-        st.write("Loading model weights…")
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id, dtype=DTYPE, device_map=DEVICE
-        )
+        st.write("Loading weights…")
+        model = AutoModelForCausalLM.from_pretrained(model_id, dtype=DTYPE, device_map=DEVICE)
         st.write("Finalising…")
         model.eval()
-        status.update(label="✓ Model ready", state="complete", expanded=False)
+        status.update(label="Model ready", state="complete", expanded=False)
     return tokenizer, model
-
 
 # ---------------------------------------------------------------------------
 # Inference
@@ -158,118 +185,110 @@ def _apply_top_p(probs: torch.Tensor, top_p: float) -> torch.Tensor:
     return filtered / filtered.sum()
 
 
-def get_next_token_distribution(
-    tokenizer, model, text: str, temperature: float = 1.0, top_p: float = 1.0
-):
+def get_next_token_distribution(tokenizer, model, text, temperature=1.0, top_p=1.0):
     inputs = {k: v.to(DEVICE) for k, v in tokenizer(text, return_tensors="pt").items()}
     with torch.no_grad():
-        outputs = model(**inputs)
-
-    logits = outputs.logits[0, -1, :]
+        logits = model(**inputs).logits[0, -1, :]
 
     if temperature <= 0.01:
-        probs_all = torch.zeros_like(logits)
-        probs_all[logits.argmax()] = 1.0
+        probs = torch.zeros_like(logits)
+        probs[logits.argmax()] = 1.0
         selected_id = int(logits.argmax())
     else:
-        probs_all = torch.softmax(logits / temperature, dim=-1)
+        probs = torch.softmax(logits / temperature, dim=-1)
         if top_p < 1.0:
-            probs_all = _apply_top_p(probs_all, top_p)
-        selected_id = int(torch.multinomial(probs_all, num_samples=1))
+            probs = _apply_top_p(probs, top_p)
+        selected_id = int(torch.multinomial(probs, num_samples=1))
 
-    k = min(20, int((probs_all > 0).sum()))
-    top = torch.topk(probs_all, k=k)
-    top_tokens = [tokenizer.decode([tid]) for tid in top.indices.tolist()]
+    k = min(15, int((probs > 0).sum()))
+    top = torch.topk(probs, k=k)
+    top_tokens = [tokenizer.decode([i]) for i in top.indices.tolist()]
     top_probs  = top.values.tolist()
 
     selected_token = tokenizer.decode([selected_id])
-    selected_prob  = float(probs_all[selected_id])
-    n_nucleus      = int((probs_all > 0).sum())
-    entropy_bits   = float(-torch.sum(probs_all * torch.log2(probs_all + 1e-12)))
+    selected_prob  = float(probs[selected_id])
+    n_nucleus      = int((probs > 0).sum())
+    entropy        = float(-torch.sum(probs * torch.log2(probs + 1e-12)))
 
-    return top_tokens, top_probs, selected_token, selected_prob, entropy_bits, n_nucleus
-
+    return top_tokens, top_probs, selected_token, selected_prob, entropy, n_nucleus
 
 # ---------------------------------------------------------------------------
-# Plotting
+# Chart — vertical bars, full width
 # ---------------------------------------------------------------------------
 
-COLOUR_SELECTED = "#f97316"   # warm orange
-COLOUR_NUCLEUS  = "#6366f1"   # indigo
-COLOUR_TAIL     = "#1e3a5f"   # muted blue
-
-
-def make_histogram(tokens, probs, selected_token) -> go.Figure:
-    colours = [COLOUR_SELECTED if t == selected_token else COLOUR_NUCLEUS for t in tokens]
-    tokens_r  = tokens[::-1]
-    probs_r   = probs[::-1]
-    colours_r = colours[::-1]
+def make_chart(tokens, probs, selected_token) -> go.Figure:
+    colours = [
+        "#f97316" if t == selected_token else "#e0e7ff"
+        for t in tokens
+    ]
+    border = [
+        "#ea580c" if t == selected_token else "#c7d2fe"
+        for t in tokens
+    ]
 
     fig = go.Figure(go.Bar(
-        x=probs_r,
-        y=[repr(t) for t in tokens_r],
-        orientation="h",
-        marker=dict(
-            color=colours_r,
-            line=dict(width=0),
-        ),
-        text=[f"{p*100:.1f}%" for p in probs_r],
+        x=[repr(t) for t in tokens],
+        y=probs,
+        marker=dict(color=colours, line=dict(color=border, width=1.5)),
+        text=[f"{p*100:.1f}%" for p in probs],
         textposition="outside",
-        textfont=dict(size=12, color="#e5e7eb"),
-        hovertemplate="<b>%{y}</b><br>Probability: %{x:.4f}<extra></extra>",
+        textfont=dict(size=11, color="#475569"),
+        hovertemplate="<b>%{x}</b><br>%{y:.4f}<extra></extra>",
     ))
 
     fig.update_layout(
-        xaxis_title=None,
-        yaxis_title=None,
         xaxis=dict(
-            range=[0, max(probs) * 1.3],
-            showgrid=True,
-            gridcolor="#1f2937",
-            tickformat=".0%",
-            tickfont=dict(color="#6b7280", size=11),
+            tickfont=dict(size=11, color="#334155"),
+            showgrid=False,
             zeroline=False,
         ),
         yaxis=dict(
-            tickfont=dict(color="#e5e7eb", size=12),
-            ticklabelposition="outside left",
+            tickformat=".0%",
+            tickfont=dict(size=10, color="#94a3b8"),
+            showgrid=True,
+            gridcolor="#f1f5f9",
+            zeroline=False,
+            range=[0, max(probs) * 1.3],
         ),
-        margin=dict(l=10, r=70, t=10, b=10),
-        height=540,
-        plot_bgcolor="#111827",
-        paper_bgcolor="#111827",
-        font=dict(family="Inter", color="#e5e7eb"),
-        bargap=0.25,
+        margin=dict(l=10, r=10, t=30, b=10),
+        height=340,
+        plot_bgcolor="#ffffff",
+        paper_bgcolor="#ffffff",
+        font=dict(family="Inter"),
+        bargap=0.3,
     )
     return fig
 
+# ---------------------------------------------------------------------------
+# Sentence renderer
+# ---------------------------------------------------------------------------
 
 def render_sentence(prompt: str, history: list[tuple[str, float]]) -> str:
-    parts = [f'<span style="color:#9ca3af;">{prompt}</span>']
+    parts = [f'<span style="color:#64748b;">{prompt}</span>']
     for token, prob in history:
         if prob > 0.5:
-            colour, bg = "#10b981", "#052e16"
+            colour, bg, border = "#065f46", "#d1fae5", "#a7f3d0"
         elif prob > 0.2:
-            colour, bg = "#f59e0b", "#2d1f00"
+            colour, bg, border = "#92400e", "#fef3c7", "#fde68a"
         else:
-            colour, bg = "#f87171", "#2d0a0a"
+            colour, bg, border = "#991b1b", "#fee2e2", "#fecaca"
         parts.append(
             f'<span style="color:{colour}; background:{bg}; '
-            f'border-radius:4px; padding:2px 5px; margin:0 1px; '
-            f'font-weight:600;">{token}</span>'
+            f'border:1px solid {border}; border-radius:5px; '
+            f'padding:1px 6px; margin:0 1px; font-weight:600; '
+            f'font-size:1.15rem;">{token}</span>'
         )
     return "".join(parts)
-
 
 # ---------------------------------------------------------------------------
 # Session state
 # ---------------------------------------------------------------------------
 
 defaults = dict(
-    sentence="", history=[], started=False,
+    sentence="", history=[], started=False, step=0,
     top_tokens=[], top_probs=[],
     selected_token="", selected_prob=0.0,
-    entropy=0.0, n_nucleus=0, step=0,
+    entropy=0.0, n_nucleus=0,
     model_ready=False, model_label="",
     tokenizer=None, model=None,
 )
@@ -277,25 +296,22 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-
 # ---------------------------------------------------------------------------
-# Sidebar
+# Sidebar — model only
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
-    st.markdown("## 🔍 Hesitate")
-    st.caption("Slow down generation. See the model think.")
+    st.markdown("### 🔍 Hesitate")
+    st.caption("Step through LLM generation one token at a time.")
     st.divider()
 
-    st.markdown("#### Model")
-    chosen_label = st.selectbox(
-        "Choose a model",
-        list(MODELS.keys()),
-        index=0,
+    st.markdown("**Model**")
+    chosen = st.selectbox(
+        "model", list(MODELS.keys()), index=0,
         disabled=st.session_state.model_ready,
         label_visibility="collapsed",
     )
-    model_id = MODELS[chosen_label]
+    model_id = MODELS[chosen]
 
     if model_id == "__custom__":
         model_id = st.text_input(
@@ -311,15 +327,14 @@ with st.sidebar:
             type="primary",
             disabled=not model_id or model_id == "__custom__",
         ):
-            tokenizer, model = load_model(model_id)
-            st.session_state.tokenizer   = tokenizer
-            st.session_state.model       = model
+            tok, mdl = load_model(model_id)
+            st.session_state.tokenizer   = tok
+            st.session_state.model       = mdl
             st.session_state.model_ready = True
-            st.session_state.model_label = chosen_label
-
-    if st.session_state.model_ready:
+            st.session_state.model_label = chosen
+    else:
         st.success(f"✓ {st.session_state.model_label}")
-        st.caption(f"Device: `{DEVICE.upper()}` · Precision: `{str(DTYPE).split('.')[-1]}`")
+        st.caption(f"`{DEVICE.upper()}` · `{str(DTYPE).split('.')[-1]}`")
         if st.button("⇄ Swap model", use_container_width=True):
             for k in ("model_ready", "started"):
                 st.session_state[k] = False
@@ -329,226 +344,205 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
-    st.markdown("#### Sampling")
-
-    temperature = st.slider(
-        "Temperature",
-        min_value=0.1, max_value=2.0, value=1.0, step=0.05,
-        help="Scales logits before softmax. Low = peaked, high = flat.",
-    )
-    t_label = (
-        "🥶 Deterministic" if temperature <= 0.2 else
-        "❄️ Focused"       if temperature <  0.8 else
-        "🌡️ Balanced"      if temperature <= 1.2 else
-        "🔥 Creative"      if temperature <= 1.7 else
-        "🌋 Chaotic"
-    )
-    st.caption(f"{t_label} — T = {temperature:.2f}")
-
-    top_p = st.slider(
-        "Top-p (nucleus)",
-        min_value=0.1, max_value=1.0, value=1.0, step=0.05,
-        help="Keep smallest set of tokens covering p% of probability mass.",
-    )
-    if top_p < 1.0:
-        nucleus_info = f"Nucleus: {top_p*100:.0f}% of mass"
-        if st.session_state.n_nucleus:
-            nucleus_info += f" · {st.session_state.n_nucleus} tokens"
-        st.caption(nucleus_info)
-    else:
-        st.caption("Full vocabulary · no nucleus truncation")
-
-    st.divider()
     st.markdown(
-        '<div style="font-size:0.75rem; color:#4b5563; line-height:1.8;">'
-        '🟢 &nbsp;> 50% confident<br>'
-        '🟠 &nbsp;20–50% uncertain<br>'
-        '🔴 &nbsp;< 20% hesitating'
+        '<div style="font-size:0.75rem; color:#94a3b8; line-height:2;">'
+        '🟢 &gt;50% — confident<br>'
+        '🟡 20–50% — uncertain<br>'
+        '🔴 &lt;20% — hesitating'
         '</div>',
         unsafe_allow_html=True,
     )
 
-
 # ---------------------------------------------------------------------------
-# Header
+# Main — top to bottom flow
 # ---------------------------------------------------------------------------
 
-col_title, col_step = st.columns([3, 1])
-with col_title:
-    st.markdown("## Token-by-token generation")
+# --- Header ---
+c1, c2 = st.columns([3, 1])
+with c1:
+    st.markdown("## What is the model thinking?")
     st.caption(
-        "Enter a prompt, hit **Start**, then step through generation one token at a time. "
-        "The histogram shows the model's probability distribution before each choice."
+        "Type a prompt → Start → step through generation one token at a time. "
+        "The chart shows the full probability distribution before each pick."
     )
-with col_step:
+with c2:
     if st.session_state.started:
         st.markdown(
-            f'<div style="text-align:right; padding-top:1rem;">'
-            f'<span style="font-size:2rem; font-weight:700; color:#6366f1;">'
-            f'Step {st.session_state.step}</span><br>'
-            f'<span style="color:#6b7280; font-size:0.8rem;">tokens generated</span>'
+            f'<div style="text-align:right; padding-top:0.5rem;">'
+            f'<span style="font-size:2.2rem; font-weight:700; color:#6366f1;">{st.session_state.step}</span>'
+            f'<span style="color:#94a3b8; font-size:0.8rem; margin-left:4px;">tokens</span>'
             f'</div>',
             unsafe_allow_html=True,
         )
 
 st.divider()
 
-# ---------------------------------------------------------------------------
-# Main layout
-# ---------------------------------------------------------------------------
-
-col_left, col_right = st.columns([1, 1], gap="large")
-
-def _run_inference():
-    return get_next_token_distribution(
-        st.session_state.tokenizer,
-        st.session_state.model,
-        st.session_state.sentence,
-        temperature,
-        top_p,
+# --- Sentence hero ---
+if st.session_state.sentence or not st.session_state.model_ready:
+    sentence_html = (
+        render_sentence(
+            st.session_state.sentence[:len(st.session_state.sentence) - sum(len(t) for t, _ in st.session_state.history)],
+            st.session_state.history
+        )
+        if st.session_state.history
+        else f'<span style="color:#64748b; font-size:1.15rem;">{st.session_state.sentence or "Your sentence will grow here…"}</span>'
     )
+else:
+    sentence_html = '<span style="color:#cbd5e1; font-size:1.15rem;">Your sentence will grow here…</span>'
 
-with col_left:
+st.markdown(
+    f'<div style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:14px; '
+    f'padding:1.5rem 2rem; min-height:72px; line-height:2.2;">'
+    f'{sentence_html}'
+    f'</div>',
+    unsafe_allow_html=True,
+)
 
-    # Prompt input
-    prompt = st.text_area(
-        "Prompt",
+st.markdown("<div style='height:0.75rem;'></div>", unsafe_allow_html=True)
+
+# --- Prompt + Controls ---
+pcol, bcol1, bcol2, bcol3 = st.columns([4, 1.2, 1.2, 0.5])
+
+with pcol:
+    prompt = st.text_input(
+        "prompt",
         placeholder="The capital of France is",
-        height=90,
         disabled=not st.session_state.model_ready,
         label_visibility="collapsed",
     )
 
-    # Controls
-    b1, b2, b3 = st.columns([2, 2, 1])
-    with b1:
-        if st.button(
-            "▶ Start",
-            use_container_width=True,
-            type="primary",
-            disabled=not st.session_state.model_ready,
-        ):
-            if prompt.strip():
-                st.session_state.sentence = prompt.strip()
-                st.session_state.history  = []
-                st.session_state.started  = True
-                st.session_state.step     = 0
-                (
-                    st.session_state.top_tokens,
-                    st.session_state.top_probs,
-                    st.session_state.selected_token,
-                    st.session_state.selected_prob,
-                    st.session_state.entropy,
-                    st.session_state.n_nucleus,
-                ) = _run_inference()
+with bcol1:
+    start = st.button(
+        "▶ Start",
+        use_container_width=True,
+        type="primary",
+        disabled=not st.session_state.model_ready,
+    )
 
-    with b2:
-        if st.button(
-            "⏭ Next token",
-            use_container_width=True,
-            disabled=not (st.session_state.model_ready and st.session_state.started),
-        ):
-            st.session_state.sentence += st.session_state.selected_token
-            st.session_state.history.append(
-                (st.session_state.selected_token, st.session_state.selected_prob)
-            )
-            st.session_state.step += 1
-            (
-                st.session_state.top_tokens,
-                st.session_state.top_probs,
-                st.session_state.selected_token,
-                st.session_state.selected_prob,
-                st.session_state.entropy,
-                st.session_state.n_nucleus,
-            ) = _run_inference()
+with bcol2:
+    nxt = st.button(
+        "⏭ Next token",
+        use_container_width=True,
+        disabled=not (st.session_state.model_ready and st.session_state.started),
+    )
 
-    with b3:
-        if st.button("↺", use_container_width=True, help="Reset"):
-            st.session_state.sentence       = ""
-            st.session_state.history        = []
-            st.session_state.started        = False
-            st.session_state.step           = 0
-            st.session_state.top_tokens     = []
-            st.session_state.top_probs      = []
-            st.session_state.selected_token = ""
-            st.session_state.selected_prob  = 0.0
-            st.session_state.entropy        = 0.0
-            st.session_state.n_nucleus      = 0
+with bcol3:
+    rst = st.button("↺", use_container_width=True, help="Reset")
 
-    st.markdown("<div style='height:1rem;'></div>", unsafe_allow_html=True)
+# --- Sampling controls ---
+sc1, sc2, sc3 = st.columns([2, 2, 3])
+with sc1:
+    temperature = st.slider(
+        "Temperature", 0.1, 2.0, 1.0, 0.05,
+        help="Low = peaked distribution. High = flat distribution.",
+    )
+with sc2:
+    top_p = st.slider(
+        "Top-p (nucleus)", 0.1, 1.0, 1.0, 0.05,
+        help="Truncate to tokens covering p% of probability mass.",
+    )
+with sc3:
+    labels = {
+        temperature <= 0.2: "🥶 Deterministic — always picks the top token",
+        0.2 < temperature < 0.8: "❄️ Focused — top tokens dominate",
+        0.8 <= temperature <= 1.2: "🌡️ Balanced — raw model output",
+        1.2 < temperature <= 1.7: "🔥 Creative — surprising picks likely",
+        temperature > 1.7: "🌋 Chaotic — almost random",
+    }
+    st.markdown("<div style='height:0.4rem;'></div>", unsafe_allow_html=True)
+    st.caption(next(v for k, v in labels.items() if k))
+    if top_p < 1.0 and st.session_state.n_nucleus:
+        st.caption(f"Nucleus: {st.session_state.n_nucleus} tokens covering {top_p*100:.0f}% of mass")
 
-    # Sentence display
-    if st.session_state.sentence:
-        sentence_html = render_sentence(prompt.strip(), st.session_state.history)
-    else:
-        sentence_html = '<span style="color:#374151;">Your sentence will appear here…</span>'
+# --- Handle button actions ---
+def _run():
+    return get_next_token_distribution(
+        st.session_state.tokenizer,
+        st.session_state.model,
+        st.session_state.sentence,
+        temperature, top_p,
+    )
 
+if start and prompt.strip():
+    st.session_state.sentence = prompt.strip()
+    st.session_state.history  = []
+    st.session_state.started  = True
+    st.session_state.step     = 0
+    (
+        st.session_state.top_tokens, st.session_state.top_probs,
+        st.session_state.selected_token, st.session_state.selected_prob,
+        st.session_state.entropy, st.session_state.n_nucleus,
+    ) = _run()
+    st.rerun()
+
+if nxt:
+    st.session_state.sentence += st.session_state.selected_token
+    st.session_state.history.append(
+        (st.session_state.selected_token, st.session_state.selected_prob)
+    )
+    st.session_state.step += 1
+    (
+        st.session_state.top_tokens, st.session_state.top_probs,
+        st.session_state.selected_token, st.session_state.selected_prob,
+        st.session_state.entropy, st.session_state.n_nucleus,
+    ) = _run()
+    st.rerun()
+
+if rst:
+    for k, v in dict(
+        sentence="", history=[], started=False, step=0,
+        top_tokens=[], top_probs=[], selected_token="",
+        selected_prob=0.0, entropy=0.0, n_nucleus=0,
+    ).items():
+        st.session_state[k] = v
+    st.rerun()
+
+st.divider()
+
+# --- Metrics + Chart ---
+if st.session_state.top_tokens:
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Selected token", repr(st.session_state.selected_token))
+    m2.metric("Probability", f"{st.session_state.selected_prob*100:.1f}%")
+    m3.metric("Entropy", f"{st.session_state.entropy:.2f} bits")
+    m4.metric("Nucleus size", f"{st.session_state.n_nucleus:,}")
+
+    st.markdown("<div style='height:0.5rem;'></div>", unsafe_allow_html=True)
+
+    # Chart title
     st.markdown(
-        f'<div style="'
-        f'background:#111827; border:1px solid #1f2937; border-radius:12px; '
-        f'padding:1.5rem 1.8rem; min-height:90px; '
-        f'font-size:1.25rem; line-height:2.2; letter-spacing:0.01em;">'
-        f'{sentence_html}'
+        f'<div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.25rem;">'
+        f'<span style="font-weight:600; color:#1e293b;">Next token distribution</span>'
+        f'<span style="background:#fff7ed; color:#ea580c; border:1px solid #fed7aa; '
+        f'border-radius:20px; padding:2px 12px; font-size:0.8rem; font-weight:600;">'
+        f'{repr(st.session_state.selected_token)} · {st.session_state.selected_prob*100:.1f}%</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
 
-    # Metrics
-    if st.session_state.started:
-        st.markdown("<div style='height:1rem;'></div>", unsafe_allow_html=True)
-        m1, m2, m3 = st.columns(3)
-        m1.metric(
-            "Next token",
-            repr(st.session_state.selected_token),
-            f"{st.session_state.selected_prob*100:.1f}%",
-        )
-        m2.metric(
-            "Entropy",
-            f"{st.session_state.entropy:.2f}",
-            help="Bits of uncertainty. Higher = model is more spread out.",
-        )
-        m3.metric(
-            "Nucleus",
-            f"{st.session_state.n_nucleus:,}",
-            help="Tokens with non-zero probability after top-p truncation.",
-        )
+    fig = make_chart(
+        st.session_state.top_tokens,
+        st.session_state.top_probs,
+        st.session_state.selected_token,
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-with col_right:
-
-    if st.session_state.top_tokens:
-        # Chart label
-        selected_repr = repr(st.session_state.selected_token)
-        st.markdown(
-            f'<div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">'
-            f'<span style="color:#9ca3af; font-size:0.85rem;">Next token distribution</span>'
-            f'<span style="background:#f97316; color:white; border-radius:6px; '
-            f'padding:2px 10px; font-size:0.85rem; font-weight:600;">'
-            f'{selected_repr} selected</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
-        fig = make_histogram(
-            st.session_state.top_tokens,
-            st.session_state.top_probs,
-            st.session_state.selected_token,
-        )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-
-    elif not st.session_state.model_ready:
-        st.markdown(
-            '<div style="background:#111827; border:1px solid #1f2937; border-radius:12px; '
-            'padding:3rem; text-align:center; margin-top:2rem;">'
-            '<div style="font-size:2.5rem; margin-bottom:1rem;">🧠</div>'
-            '<div style="color:#6b7280; font-size:1rem;">Load a model from the sidebar to begin</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<div style="background:#111827; border:1px solid #1f2937; border-radius:12px; '
-            'padding:3rem; text-align:center; margin-top:2rem;">'
-            '<div style="font-size:2.5rem; margin-bottom:1rem;">✍️</div>'
-            '<div style="color:#6b7280; font-size:1rem;">Enter a prompt and click Start</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+elif st.session_state.model_ready:
+    st.markdown(
+        '<div style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:14px; '
+        'padding:3rem; text-align:center; margin-top:1rem;">'
+        '<div style="font-size:2rem; margin-bottom:0.5rem;">✍️</div>'
+        '<div style="color:#94a3b8;">Type a prompt above and click Start</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        '<div style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:14px; '
+        'padding:3rem; text-align:center; margin-top:1rem;">'
+        '<div style="font-size:2rem; margin-bottom:0.5rem;">🧠</div>'
+        '<div style="color:#94a3b8;">Load a model from the sidebar to get started</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
