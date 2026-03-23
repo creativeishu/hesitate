@@ -35,23 +35,18 @@ MODELS = {
 }
 
 # ---------------------------------------------------------------------------
-# Model loading — synchronous, inside st.status() for live feedback
+# Model loading
 # ---------------------------------------------------------------------------
 
 def load_model(model_id: str):
-    """Load tokenizer and model, showing live status in the sidebar."""
     with st.status("Loading model…", expanded=True) as status:
         st.write("Loading tokenizer…")
         tokenizer = AutoTokenizer.from_pretrained(model_id)
-
         st.write("Loading model weights…")
         model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.float32)
-
         st.write("Finalising…")
         model.eval()
-
         status.update(label="Model ready!", state="complete", expanded=False)
-
     return tokenizer, model
 
 
@@ -59,8 +54,29 @@ def load_model(model_id: str):
 # Inference
 # ---------------------------------------------------------------------------
 
+def _apply_top_p(probs: torch.Tensor, top_p: float) -> torch.Tensor:
+    """
+    Zero out tokens outside the nucleus (top-p).
+    Sorts descending, computes cumulative sum, masks tokens beyond the cutoff,
+    then renormalises. The top token is always kept regardless of top_p.
+    """
+    sorted_probs, sorted_idx = torch.sort(probs, descending=True)
+    cumulative = torch.cumsum(sorted_probs, dim=0)
+
+    # Remove tokens where cumulative prob *exceeds* top_p, but keep the first
+    # token that pushes cumulative over top_p (so we always have at least one)
+    remove = (cumulative - sorted_probs) >= top_p
+    sorted_probs[remove] = 0.0
+
+    # Scatter back to original order and renormalise
+    filtered = torch.zeros_like(probs)
+    filtered[sorted_idx] = sorted_probs
+    filtered = filtered / filtered.sum()
+    return filtered
+
+
 def get_next_token_distribution(
-    tokenizer, model, text: str, top_k: int = 20, temperature: float = 1.0
+    tokenizer, model, text: str, temperature: float = 1.0, top_p: float = 1.0
 ):
     inputs = tokenizer(text, return_tensors="pt")
     with torch.no_grad():
@@ -68,28 +84,34 @@ def get_next_token_distribution(
 
     logits = outputs.logits[0, -1, :]
 
-    # Apply temperature before softmax
     if temperature <= 0.01:
-        # Fully greedy — argmax, no randomness
+        # Fully greedy
         probs_all = torch.zeros_like(logits)
         probs_all[logits.argmax()] = 1.0
         selected_id = int(logits.argmax())
     else:
         probs_all = torch.softmax(logits / temperature, dim=-1)
-        # Sample from the distribution — this is what makes temperature meaningful.
-        # argmax would always pick the top token regardless of T.
+
+        # Apply top-p nucleus truncation before sampling
+        if top_p < 1.0:
+            probs_all = _apply_top_p(probs_all, top_p)
+
         selected_id = int(torch.multinomial(probs_all, num_samples=1))
 
-    top = torch.topk(probs_all, k=top_k)
+    # Always show top-20 of the (possibly nucleus-truncated) distribution
+    top = torch.topk(probs_all, k=min(20, int((probs_all > 0).sum())))
     top_tokens = [tokenizer.decode([tid]) for tid in top.indices.tolist()]
-    top_probs = top.values.tolist()
+    top_probs  = top.values.tolist()
 
     selected_token = tokenizer.decode([selected_id])
-    selected_prob = float(probs_all[selected_id])
+    selected_prob  = float(probs_all[selected_id])
+
+    # Number of tokens in the nucleus
+    n_nucleus = int((probs_all > 0).sum())
 
     entropy_bits = float(-torch.sum(probs_all * torch.log2(probs_all + 1e-12)))
 
-    return top_tokens, top_probs, selected_token, selected_prob, entropy_bits
+    return top_tokens, top_probs, selected_token, selected_prob, entropy_bits, n_nucleus
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +120,9 @@ def get_next_token_distribution(
 
 def make_histogram(tokens, probs, selected_token) -> go.Figure:
     colours = ["#e63946" if t == selected_token else "#457b9d" for t in tokens]
-    tokens_r, probs_r, colours_r = tokens[::-1], probs[::-1], colours[::-1]
+    tokens_r  = tokens[::-1]
+    probs_r   = probs[::-1]
+    colours_r = colours[::-1]
 
     fig = go.Figure(go.Bar(
         x=probs_r,
@@ -145,6 +169,7 @@ defaults = dict(
     selected_token="",
     selected_prob=0.0,
     entropy=0.0,
+    n_nucleus=0,
     model_ready=False,
     model_label="",
     tokenizer=None,
@@ -173,50 +198,65 @@ with st.sidebar:
     if not st.session_state.model_ready:
         if st.button("Load model", use_container_width=True, type="primary"):
             tokenizer, model = load_model(model_id)
-            st.session_state.tokenizer = tokenizer
-            st.session_state.model = model
+            st.session_state.tokenizer  = tokenizer
+            st.session_state.model      = model
             st.session_state.model_ready = True
             st.session_state.model_label = chosen_label
 
     if st.session_state.model_ready:
         st.success(f"✓ {st.session_state.model_label}")
         if st.button("Load different model", use_container_width=True):
-            st.session_state.model_ready = False
-            st.session_state.tokenizer = None
-            st.session_state.model = None
-            st.session_state.started = False
+            for key in ("model_ready", "started"):
+                st.session_state[key] = False
+            for key in ("tokenizer", "model"):
+                st.session_state[key] = None
             st.session_state.history = []
             st.rerun()
 
     st.caption(
-        "Smaller models (distilgpt2, gpt2) lack factual knowledge — "
-        "they won't reliably predict 'Paris' for 'capital of France'. "
-        "GPT-2 Medium is the minimum size for sensible factual completions."
+        "Smaller models (distilgpt2, gpt2) lack factual knowledge. "
+        "GPT-2 Medium is the minimum for sensible factual completions."
     )
+
     st.divider()
-    st.header("Settings")
-    top_k = st.slider("Top-k tokens to display", min_value=5, max_value=40, value=20)
+    st.header("Sampling settings")
 
     temperature = st.slider(
         "Temperature",
-        min_value=0.1,
-        max_value=2.0,
-        value=1.0,
-        step=0.05,
+        min_value=0.1, max_value=2.0, value=1.0, step=0.05,
         help=(
-            "Controls how peaked or flat the distribution is.\n\n"
-            "< 1.0 → more confident, histogram spikes to top token\n\n"
+            "Divides logits before softmax.\n\n"
+            "< 1.0 → distribution peaks sharply at top token\n\n"
             "= 1.0 → raw model output\n\n"
-            "> 1.0 → flatter, more random, surprising picks"
+            "> 1.0 → distribution flattens, more surprising picks"
         ),
     )
     st.caption(
         f"{'🥶 Deterministic' if temperature <= 0.2 else '❄️ Focused' if temperature < 0.8 else '🌡️ Balanced' if temperature <= 1.2 else '🔥 Creative' if temperature <= 1.7 else '🌋 Chaotic'}"
         f"  —  T = {temperature:.2f}"
     )
+
+    top_p = st.slider(
+        "Top-p (nucleus sampling)",
+        min_value=0.1, max_value=1.0, value=1.0, step=0.05,
+        help=(
+            "Keeps only the smallest set of tokens whose cumulative "
+            "probability exceeds p, then renormalises and samples from those.\n\n"
+            "1.0 → sample from the full vocabulary (no truncation)\n\n"
+            "0.9 → discard the low-probability tail, keep 90% of the mass\n\n"
+            "0.5 → nucleus is very tight, only the most likely tokens survive"
+        ),
+    )
+    if top_p < 1.0:
+        st.caption(f"Nucleus: top tokens covering {top_p*100:.0f}% of probability mass")
+        if st.session_state.n_nucleus:
+            st.caption(f"→ {st.session_state.n_nucleus} tokens in nucleus at last step")
+    else:
+        st.caption("Full vocabulary — no nucleus truncation")
+
     st.divider()
     st.markdown(
-        "**Colour guide (generated tokens)**\n\n"
+        "**Token colour guide**\n\n"
         "🟢 > 50% confident\n\n"
         "🟠 20–50%\n\n"
         "🔴 < 20% (hesitating)"
@@ -228,6 +268,15 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 
 col_left, col_right = st.columns([1, 1], gap="large")
+
+def _run_inference():
+    return get_next_token_distribution(
+        st.session_state.tokenizer,
+        st.session_state.model,
+        st.session_state.sentence,
+        temperature,
+        top_p,
+    )
 
 with col_left:
     st.subheader("Input")
@@ -250,21 +299,16 @@ with col_left:
         ):
             if prompt.strip():
                 st.session_state.sentence = prompt.strip()
-                st.session_state.history = []
-                st.session_state.started = True
+                st.session_state.history  = []
+                st.session_state.started  = True
                 (
                     st.session_state.top_tokens,
                     st.session_state.top_probs,
                     st.session_state.selected_token,
                     st.session_state.selected_prob,
                     st.session_state.entropy,
-                ) = get_next_token_distribution(
-                    st.session_state.tokenizer,
-                    st.session_state.model,
-                    st.session_state.sentence,
-                    top_k,
-                    temperature,
-                )
+                    st.session_state.n_nucleus,
+                ) = _run_inference()
 
     with btn_next:
         if st.button(
@@ -282,24 +326,22 @@ with col_left:
                 st.session_state.selected_token,
                 st.session_state.selected_prob,
                 st.session_state.entropy,
-            ) = get_next_token_distribution(
-                st.session_state.tokenizer,
-                st.session_state.model,
-                st.session_state.sentence,
-                top_k,
-                temperature,
-            )
+                st.session_state.n_nucleus,
+            ) = _run_inference()
 
     with btn_reset:
         if st.button("↺ Reset", use_container_width=True):
-            st.session_state.sentence = ""
-            st.session_state.history = []
-            st.session_state.started = False
-            st.session_state.top_tokens = []
-            st.session_state.top_probs = []
+            for key in ("sentence", "selected_token", "model_label"):
+                pass
+            st.session_state.sentence       = ""
+            st.session_state.history        = []
+            st.session_state.started        = False
+            st.session_state.top_tokens     = []
+            st.session_state.top_probs      = []
             st.session_state.selected_token = ""
-            st.session_state.selected_prob = 0.0
-            st.session_state.entropy = 0.0
+            st.session_state.selected_prob  = 0.0
+            st.session_state.entropy        = 0.0
+            st.session_state.n_nucleus      = 0
 
     st.divider()
     st.subheader("Generated sentence")
@@ -314,7 +356,7 @@ with col_left:
 
     if st.session_state.started:
         st.divider()
-        m1, m2 = st.columns(2)
+        m1, m2, m3 = st.columns(3)
         m1.metric(
             "Selected token",
             repr(st.session_state.selected_token),
@@ -323,11 +365,20 @@ with col_left:
         m2.metric(
             "Entropy",
             f"{st.session_state.entropy:.2f} bits",
-            help="Higher = more uncertain. Lower = more confident.",
+            help="Higher = more uncertain.",
+        )
+        m3.metric(
+            "Nucleus size",
+            st.session_state.n_nucleus,
+            help="Number of tokens in the nucleus after top-p truncation.",
         )
 
 with col_right:
     st.subheader("Next token distribution")
+    if top_p < 1.0:
+        st.caption(f"Showing top 20 of the {st.session_state.n_nucleus or '?'}-token nucleus (p={top_p})")
+    else:
+        st.caption("Showing top 20 tokens from full vocabulary")
 
     if st.session_state.top_tokens:
         fig = make_histogram(
