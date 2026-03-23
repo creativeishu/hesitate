@@ -49,15 +49,18 @@ DEVICE = (
 )
 DTYPE = torch.float16 if DEVICE in ("mps", "cuda") else torch.float32
 
+DEFAULT_CACHE_DIR = "/Volumes/ArrowData/hesitate"
 
-def load_model(model_id: str):
+
+def load_model(model_id: str, cache_dir: str):
     with st.status("Loading model…", expanded=True) as status:
         st.write(f"Device: **{DEVICE}** | dtype: **{DTYPE}**")
+        st.write(f"Cache: `{cache_dir}`")
         st.write("Loading tokenizer…")
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        tokenizer = AutoTokenizer.from_pretrained(model_id, cache_dir=cache_dir)
         st.write("Loading model weights…")
         model = AutoModelForCausalLM.from_pretrained(
-            model_id, dtype=DTYPE, device_map=DEVICE
+            model_id, dtype=DTYPE, device_map=DEVICE, cache_dir=cache_dir
         )
         st.write("Finalising…")
         model.eval()
@@ -218,6 +221,13 @@ with st.sidebar:
             disabled=st.session_state.model_ready,
         ).strip()
 
+    cache_dir = st.text_input(
+        "Model cache directory",
+        value=DEFAULT_CACHE_DIR,
+        disabled=st.session_state.model_ready,
+        help="Weights are downloaded here on first load and reused on subsequent loads.",
+    ).strip()
+
     if not st.session_state.model_ready:
         if st.button(
             "Load model",
@@ -225,7 +235,7 @@ with st.sidebar:
             type="primary",
             disabled=not model_id or model_id == "__custom__",
         ):
-            tokenizer, model = load_model(model_id)
+            tokenizer, model = load_model(model_id, cache_dir)
             st.session_state.tokenizer  = tokenizer
             st.session_state.model      = model
             st.session_state.model_ready = True
