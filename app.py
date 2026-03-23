@@ -59,13 +59,22 @@ def load_model(model_id: str):
 # Inference
 # ---------------------------------------------------------------------------
 
-def get_next_token_distribution(tokenizer, model, text: str, top_k: int = 20):
+def get_next_token_distribution(
+    tokenizer, model, text: str, top_k: int = 20, temperature: float = 1.0
+):
     inputs = tokenizer(text, return_tensors="pt")
     with torch.no_grad():
         outputs = model(**inputs)
 
     logits = outputs.logits[0, -1, :]
-    probs_all = torch.softmax(logits, dim=-1)
+
+    # Apply temperature before softmax
+    if temperature <= 0.01:
+        # Greedy — pure argmax, no sampling
+        probs_all = torch.zeros_like(logits)
+        probs_all[logits.argmax()] = 1.0
+    else:
+        probs_all = torch.softmax(logits / temperature, dim=-1)
 
     top = torch.topk(probs_all, k=top_k)
     top_tokens = [tokenizer.decode([tid]) for tid in top.indices.tolist()]
@@ -184,6 +193,24 @@ with st.sidebar:
     st.divider()
     st.header("Settings")
     top_k = st.slider("Top-k tokens to display", min_value=5, max_value=40, value=20)
+
+    temperature = st.slider(
+        "Temperature",
+        min_value=0.1,
+        max_value=2.0,
+        value=1.0,
+        step=0.05,
+        help=(
+            "Controls how peaked or flat the distribution is.\n\n"
+            "< 1.0 → more confident, histogram spikes to top token\n\n"
+            "= 1.0 → raw model output\n\n"
+            "> 1.0 → flatter, more random, surprising picks"
+        ),
+    )
+    st.caption(
+        f"{'🥶 Deterministic' if temperature <= 0.2 else '❄️ Focused' if temperature < 0.8 else '🌡️ Balanced' if temperature <= 1.2 else '🔥 Creative' if temperature <= 1.7 else '🌋 Chaotic'}"
+        f"  —  T = {temperature:.2f}"
+    )
     st.divider()
     st.markdown(
         "**Colour guide (generated tokens)**\n\n"
@@ -233,6 +260,7 @@ with col_left:
                     st.session_state.model,
                     st.session_state.sentence,
                     top_k,
+                    temperature,
                 )
 
     with btn_next:
@@ -256,6 +284,7 @@ with col_left:
                 st.session_state.model,
                 st.session_state.sentence,
                 top_k,
+                temperature,
             )
 
     with btn_reset:
