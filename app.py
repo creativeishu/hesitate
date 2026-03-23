@@ -5,6 +5,9 @@ Run with:
     streamlit run app.py
 """
 
+import time
+import threading
+
 import streamlit as st
 import torch
 import plotly.graph_objects as go
@@ -24,27 +27,65 @@ st.title("Hesitate")
 st.caption("Watch a language model choose the next token, one step at a time.")
 
 # ---------------------------------------------------------------------------
-# Model loading — cached so it only loads once
+# Model loading — runs in a background thread, results stored in session state
 # ---------------------------------------------------------------------------
 
 MODELS = {
-    "GPT-2 (small, 117M)": "gpt2",
-    "GPT-2 Medium (345M)": "gpt2-medium",
-    "GPT-2 Large (774M)": "gpt2-large",
+    "GPT-2 (small, 117M)":       "gpt2",
+    "GPT-2 Medium (345M)":       "gpt2-medium",
+    "GPT-2 Large (774M)":        "gpt2-large",
     "DistilGPT-2 (82M, fastest)": "distilgpt2",
 }
 
+# Shared state between background thread and Streamlit main thread
+_load_state: dict = {}
 
-@st.cache_resource(show_spinner="Loading model...")
-def load_model(model_id: str):
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
-    model.eval()
-    return tokenizer, model
+
+def _load_model_thread(model_id: str) -> None:
+    """
+    Background thread: load tokenizer then model, updating _load_state at
+    each stage so the main thread can reflect progress.
+    """
+    try:
+        _load_state["stage"] = "tokenizer"
+        _load_state["progress"] = 15
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+        if _load_state.get("cancelled"):
+            return
+
+        _load_state["stage"] = "weights"
+        _load_state["progress"] = 50
+        model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.float32)
+
+        if _load_state.get("cancelled"):
+            return
+
+        _load_state["stage"] = "finalising"
+        _load_state["progress"] = 90
+        model.eval()
+
+        _load_state["tokenizer"] = tokenizer
+        _load_state["model"] = model
+        _load_state["progress"] = 100
+        _load_state["stage"] = "done"
+
+    except Exception as exc:
+        _load_state["stage"] = "error"
+        _load_state["error"] = str(exc)
+
+
+STAGE_LABELS = {
+    "tokenizer":  "Loading tokenizer…",
+    "weights":    "Loading model weights…",
+    "finalising": "Finalising…",
+    "done":       "Model ready.",
+    "error":      "Error loading model.",
+}
 
 
 # ---------------------------------------------------------------------------
-# Inference — get top-k token probabilities for the next token
+# Inference
 # ---------------------------------------------------------------------------
 
 def get_next_token_distribution(
@@ -52,39 +93,23 @@ def get_next_token_distribution(
     model,
     text: str,
     top_k: int = 20,
-) -> tuple[list[str], list[float], str, float]:
-    """
-    Run a forward pass and return the top-k tokens and their probabilities.
-
-    Returns
-    -------
-    tokens : list[str]
-        Top-k token strings.
-    probs : list[float]
-        Corresponding probabilities (sum <= 1.0).
-    selected_token : str
-        The token the model would greedily select (argmax).
-    selected_prob : float
-        Probability of the selected token.
-    """
+):
     inputs = tokenizer(text, return_tensors="pt")
     with torch.no_grad():
         outputs = model(**inputs)
 
-    logits = outputs.logits[0, -1, :]           # logits for next token
-    probs_all = torch.softmax(logits, dim=-1)   # full vocabulary distribution
+    logits = outputs.logits[0, -1, :]
+    probs_all = torch.softmax(logits, dim=-1)
 
     top = torch.topk(probs_all, k=top_k)
     top_probs = top.values.tolist()
     top_ids = top.indices.tolist()
     top_tokens = [tokenizer.decode([tid]) for tid in top_ids]
 
-    # Greedy selection
     selected_id = int(torch.argmax(probs_all))
     selected_token = tokenizer.decode([selected_id])
     selected_prob = float(probs_all[selected_id])
 
-    # Entropy (nats → bits)
     entropy_bits = float(
         -torch.sum(probs_all * torch.log2(probs_all + 1e-12))
     )
@@ -96,17 +121,11 @@ def get_next_token_distribution(
 # Plotting
 # ---------------------------------------------------------------------------
 
-def make_histogram(
-    tokens: list[str],
-    probs: list[float],
-    selected_token: str,
-) -> go.Figure:
+def make_histogram(tokens, probs, selected_token) -> go.Figure:
     colours = [
         "#e63946" if t == selected_token else "#457b9d"
         for t in tokens
     ]
-
-    # Reverse so highest prob is at the top
     tokens_r = tokens[::-1]
     probs_r = probs[::-1]
     colours_r = colours[::-1]
@@ -136,70 +155,110 @@ def make_histogram(
     return fig
 
 
-def render_sentence_with_highlight(history: list[tuple[str, float]]) -> str:
-    """
-    Render the generated sentence as HTML with each token coloured by
-    confidence: green (high) → yellow → red (low).
-    """
-    if not history:
-        return ""
-
-    parts = []
+def render_sentence(prompt: str, history: list[tuple[str, float]]) -> str:
+    parts = [f'<span style="color:white;">{prompt}</span>']
     for token, prob in history:
         if prob > 0.5:
-            colour = "#2dc653"   # green
+            colour = "#2dc653"
         elif prob > 0.2:
-            colour = "#f4a261"   # orange
+            colour = "#f4a261"
         else:
-            colour = "#e63946"   # red
-        parts.append(
-            f'<span style="color:{colour}; font-weight:bold;">{token}</span>'
-        )
-
+            colour = "#e63946"
+        parts.append(f'<span style="color:{colour}; font-weight:bold;">{token}</span>')
     return "".join(parts)
 
 
 # ---------------------------------------------------------------------------
-# Session state initialisation
+# Session state defaults
 # ---------------------------------------------------------------------------
 
-if "sentence" not in st.session_state:
-    st.session_state.sentence = ""
-if "history" not in st.session_state:
-    # list of (token_string, probability) for generated tokens
-    st.session_state.history = []
-if "started" not in st.session_state:
-    st.session_state.started = False
-if "top_tokens" not in st.session_state:
-    st.session_state.top_tokens = []
-if "top_probs" not in st.session_state:
-    st.session_state.top_probs = []
-if "selected_token" not in st.session_state:
-    st.session_state.selected_token = ""
-if "selected_prob" not in st.session_state:
-    st.session_state.selected_prob = 0.0
-if "entropy" not in st.session_state:
-    st.session_state.entropy = 0.0
-if "model_name" not in st.session_state:
-    st.session_state.model_name = list(MODELS.keys())[0]
+defaults = dict(
+    sentence="",
+    history=[],
+    started=False,
+    top_tokens=[],
+    top_probs=[],
+    selected_token="",
+    selected_prob=0.0,
+    entropy=0.0,
+    # model loading state
+    loading=False,
+    load_cancelled=False,
+    model_ready=False,
+    model_label="",
+)
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
 
 # ---------------------------------------------------------------------------
-# Sidebar — model selection
+# Sidebar — model selection + load with progress
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
     st.header("Model")
+
     chosen_label = st.selectbox(
         "Choose a model",
         list(MODELS.keys()),
         index=0,
+        disabled=st.session_state.loading,
     )
     model_id = MODELS[chosen_label]
 
-    if st.button("Load model"):
-        st.session_state.model_name = chosen_label
-        load_model(model_id)   # triggers cache
-        st.success(f"Loaded: {chosen_label}")
+    # --- Load button ---
+    if not st.session_state.loading and not st.session_state.model_ready:
+        if st.button("Load model", use_container_width=True, type="primary"):
+            _load_state.clear()
+            _load_state["stage"] = "starting"
+            _load_state["progress"] = 5
+            _load_state["cancelled"] = False
+            st.session_state.loading = True
+            st.session_state.load_cancelled = False
+            st.session_state.model_ready = False
+            t = threading.Thread(target=_load_model_thread, args=(model_id,), daemon=True)
+            t.start()
+            st.rerun()
+
+    # --- Progress UI (shown while loading) ---
+    if st.session_state.loading:
+        stage = _load_state.get("stage", "starting")
+        progress = _load_state.get("progress", 5)
+        label = STAGE_LABELS.get(stage, "Loading…")
+
+        st.progress(progress / 100, text=label)
+
+        if st.button("✕ Cancel", use_container_width=True):
+            _load_state["cancelled"] = True
+            st.session_state.loading = False
+            st.session_state.load_cancelled = True
+            st.warning("Load cancelled.")
+            st.rerun()
+
+        if stage == "done":
+            st.session_state.loading = False
+            st.session_state.model_ready = True
+            st.session_state.model_label = chosen_label
+            st.rerun()
+        elif stage == "error":
+            st.session_state.loading = False
+            st.error(f"Failed: {_load_state.get('error', 'unknown error')}")
+            st.rerun()
+        else:
+            # Poll every 0.5s — triggers a re-render to update the progress bar
+            time.sleep(0.5)
+            st.rerun()
+
+    # --- Ready state ---
+    if st.session_state.model_ready and not st.session_state.loading:
+        st.success(f"✓ {st.session_state.model_label}")
+        if st.button("Load different model", use_container_width=True):
+            st.session_state.model_ready = False
+            st.session_state.started = False
+            st.session_state.history = []
+            _load_state.clear()
+            st.rerun()
 
     st.divider()
     st.header("Settings")
@@ -212,11 +271,14 @@ with st.sidebar:
         "🔴 < 20% (hesitating)"
     )
 
+
 # ---------------------------------------------------------------------------
 # Main layout
 # ---------------------------------------------------------------------------
 
 col_left, col_right = st.columns([1, 1], gap="large")
+
+model_loaded = st.session_state.model_ready and "model" in _load_state
 
 with col_left:
     st.subheader("Input")
@@ -225,18 +287,24 @@ with col_left:
         "Enter a prompt",
         placeholder="The capital of France is",
         height=80,
-        key="prompt_input",
+        disabled=not model_loaded,
     )
 
     btn_start, btn_next, btn_reset = st.columns(3)
 
     with btn_start:
-        if st.button("▶ Start", use_container_width=True, type="primary"):
+        if st.button(
+            "▶ Start",
+            use_container_width=True,
+            type="primary",
+            disabled=not model_loaded,
+        ):
             if prompt.strip():
                 st.session_state.sentence = prompt.strip()
                 st.session_state.history = []
                 st.session_state.started = True
-                tokenizer, model = load_model(model_id)
+                tokenizer = _load_state["tokenizer"]
+                model = _load_state["model"]
                 (
                     st.session_state.top_tokens,
                     st.session_state.top_probs,
@@ -248,13 +316,17 @@ with col_left:
                 )
 
     with btn_next:
-        if st.button("⏭ Next", use_container_width=True, disabled=not st.session_state.started):
-            # Append selected token to sentence
+        if st.button(
+            "⏭ Next",
+            use_container_width=True,
+            disabled=not (model_loaded and st.session_state.started),
+        ):
             st.session_state.sentence += st.session_state.selected_token
             st.session_state.history.append(
                 (st.session_state.selected_token, st.session_state.selected_prob)
             )
-            tokenizer, model = load_model(model_id)
+            tokenizer = _load_state["tokenizer"]
+            model = _load_state["model"]
             (
                 st.session_state.top_tokens,
                 st.session_state.top_probs,
@@ -280,12 +352,10 @@ with col_left:
     st.subheader("Generated sentence")
 
     if st.session_state.sentence:
-        # Prompt in white, generated tokens colour-coded
-        prompt_part = st.session_state.sentence[: len(prompt.strip()) if st.session_state.history else len(st.session_state.sentence)]
-        generated_html = render_sentence_with_highlight(st.session_state.history)
+        original_prompt = prompt.strip() if prompt.strip() else st.session_state.sentence
         st.markdown(
             f'<p style="font-size:18px; line-height:1.8;">'
-            f'{prompt_part}{generated_html}'
+            f'{render_sentence(original_prompt, st.session_state.history)}'
             f'</p>',
             unsafe_allow_html=True,
         )
@@ -314,5 +384,7 @@ with col_right:
             st.session_state.selected_token,
         )
         st.plotly_chart(fig, use_container_width=True)
+    elif not model_loaded:
+        st.info("Load a model from the sidebar to get started.")
     else:
         st.info("Enter a prompt and click ▶ Start to begin.")
